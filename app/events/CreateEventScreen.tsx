@@ -1,5 +1,3 @@
-// app/(events)/CreateEventScreen.tsx
-
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -12,14 +10,20 @@ export default function CreateEventScreen() {
   const [speaker, setSpeaker] = useState<string>('');
   const [timestamp, setTimestamp] = useState<string>('');
 
-  const handleCreateEvent = () => {
+  const handleCreateEvent = async () => {
     if (!title || !duration || !description || !speaker || !timestamp) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
+    // Recupera o token de autenticação do localStorage
+    const token = localStorage.getItem('token');
+    if (!token) {
+      Alert.alert('Erro', 'Usuário não autenticado.');
+      return;
+    }
+
     const newEvent = {
-      id: Date.now().toString(), // Gera um ID único para o evento
       title,
       duration: parseInt(duration),
       timestamp: parseInt(timestamp),
@@ -30,12 +34,26 @@ export default function CreateEventScreen() {
       image: "https://example.com/default-image.jpg"
     };
 
-    // Enviar ou salvar o novo evento - Aqui estamos apenas logando como exemplo
-    console.log('Novo evento:', newEvent);
-    Alert.alert('Sucesso', 'Palestra criada com sucesso!');
-    
-    // Redireciona para a tela de eventos
-    router.push('/(home)');
+    try {
+      const response = await fetch('https://api.secompufpe.com/palestra', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newEvent)
+      });
+
+      if (response.ok) {
+        Alert.alert('Sucesso', 'Palestra criada com sucesso!');
+        router.push('/(home)');
+      } else {
+        Alert.alert('Erro', 'Falha ao criar a palestra.');
+      }
+    } catch (error) {
+      console.error('Erro na requisição:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao tentar criar a palestra.');
+    }
   };
 
   return (

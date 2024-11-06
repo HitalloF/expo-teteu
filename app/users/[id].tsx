@@ -46,7 +46,7 @@ const UserListScreen = () => {
     <View style={styles.container}>
       <Text style={styles.title}>Lista de Usuários</Text>
       <FlatList
-        data={users}
+        data={users}  
         renderItem={renderUserItem}
         keyExtractor={(item) => item.cpf} // Usando CPF como chave única
       />

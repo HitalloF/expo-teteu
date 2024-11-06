@@ -1,42 +1,41 @@
-// app/(auth)/login.tsx
-
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState<string>('');
+  const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const router = useRouter();
 
-  const handleLogin = () => {
-    // Simulação de autenticação e definição do tipo de usuário
-    let userType = ''; // Aqui, você determina o tipo de usuário (por exemplo, 'user', 'partner', 'admin')
-    
-    if (email === 'a' && password === '123') {
-      userType = 'user';
-    } else if (email === 'b' && password === '123') {
-      userType = 'partner';
-    } else if (email === 'c' && password === '123') {
-      userType = 'admin';
-    } else {
-      Alert.alert('Erro de autenticação', 'Credenciais inválidas.');
-      return;
-    }
+  const handleLogin = async () => {
+    if (username && password) {
+      try {
+        const response = await fetch('https://auth.secompufpe.com/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ username, password }),
+        });
 
-    // Redireciona com base no tipo de usuário
-    switch (userType) {
-      case 'user':
-        router.push('/HomeScreen');
-        break;
-      case 'partner':
-        router.push('/HomeScreen');
-        break;
-      case 'admin':
-        router.push('/HomeScreen');
-        break;
-      default:
-        Alert.alert('Erro', 'Tipo de usuário desconhecido.');
+        if (response.ok) {
+          const data = await response.json();
+          const token = data.id_token;
+          console.log(token)
+          // Armazena o token no localStorage
+          localStorage.setItem('token', token);
+
+          Alert.alert('Login bem-sucedido!', 'Bem-vindo(a) de volta!');
+          router.push('/HomeScreen'); // Redireciona para a página inicial
+        } else {
+          const errorData = await response.json();
+          Alert.alert('Erro de autenticação', errorData.message || 'Credenciais inválidas.');
+        }
+      } catch (error) {
+        Alert.alert('Erro', 'Não foi possível conectar ao servidor. Tente novamente.');
+      }
+    } else {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
     }
   };
 
@@ -45,10 +44,9 @@ export default function LoginScreen() {
       <Text style={styles.title}>Login</Text>
       <TextInput
         style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
+        placeholder="Username"
+        value={username}
+        onChangeText={setUsername}
         autoCapitalize="none"
       />
       <TextInput

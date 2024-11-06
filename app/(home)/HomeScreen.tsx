@@ -13,45 +13,48 @@ type Evento = {
   active: boolean;
   speaker: string;
   image: string;
+  sala: {
+    id: number;
+    title: string;
+    capacity: number;
+  };
 };
 
 export default function HomeScreen() {
   const router = useRouter();
   
-  // Especificando o tipo de eventos como Evento[]
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setEventos([
-        {
-          id: "1",
-          duration: 60,
-          timestamp: 1699200000,
-          title: "Inovações em Tecnologia",
-          description: "Explorando as últimas inovações no mundo da tecnologia.",
-          vinculo: "Empresa A",
-          active: true,
-          speaker: "Alice Silva",
-          image: "https://example.com/image1.jpg",
-        },
-        {
-          id: "2",
-          duration: 45,
-          timestamp: 1699203600,
-          title: "Desenvolvimento Web Moderno",
-          description: "Técnicas e ferramentas para desenvolvimento web atual.",
-          vinculo: "Empresa B",
-          active: true,
-          speaker: "Carlos Souza",
-          image: "https://example.com/image2.jpg",
-        },
-        // Adicione os outros objetos de evento aqui...
-      ]);
-      setLoading(false);
-    }, 1000);
+    const fetchEventos = async () => {
+      setLoading(true);
+      const token = localStorage.getItem('token'); // Pegando o token do localStorage
+
+      try {
+        const response = await fetch('https://api.secompufpe.com/palestras', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`, // Enviando o token no cabeçalho
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro ao carregar eventos');
+        }
+
+        const data = await response.json();
+        setEventos(data); // Atualiza o estado com os eventos recebidos
+      } catch (error) {
+        console.error(error);
+        // Tratar erro, caso necessário
+      } finally {
+        setLoading(false);
+      } 
+    };
+
+    fetchEventos();
   }, []);
 
   const handleEventoPress = (id: string) => {
@@ -74,7 +77,7 @@ export default function HomeScreen() {
       <Link href="/events/CreateEventScreen" style={styles.createButton}>
         <Text style={styles.createButtonText}>Criar Nova Palestra</Text>
       </Link>
-      <Link href="/users/index.tsx" style={styles.createButton}>
+      <Link href="/users/" style={styles.createButton}>
         <Text style={styles.createButtonText}>Users</Text>
       </Link>
 
@@ -88,6 +91,7 @@ export default function HomeScreen() {
             <Text style={styles.eventoSpeaker}>{item.speaker}</Text>
             <Text style={styles.eventoDescription}>{item.description}</Text>
             <Text style={styles.eventoHorario}>Duração: {item.duration} minutos</Text>
+            <Text style={styles.eventoSala}>Sala: {item.sala.title}</Text>
           </TouchableOpacity>
         )}
       />
@@ -148,6 +152,11 @@ const styles = StyleSheet.create({
   eventoHorario: {
     fontSize: 14,
     color: '#333',
+  },
+  eventoSala: {
+    fontSize: 14,
+    color: '#333',
+    fontStyle: 'italic',
   },
   loadingContainer: {
     flex: 1,

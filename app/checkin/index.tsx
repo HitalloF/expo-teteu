@@ -20,7 +20,7 @@ type Evento = {
   };
 };
 
-export default function HomeScreen() {
+export default function CheckInScreen() {
   const router = useRouter();
   
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -58,7 +58,7 @@ export default function HomeScreen() {
   }, []);
 
   const handleEventoPress = (id: string) => {
-    router.push(`/events/${id}`);
+    router.push(`/checkin/${id}`);
   };
 
   if (loading) {
@@ -72,7 +72,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Eventos</Text>
+      <Text style={styles.title}>Eventosss</Text>
 
       <Link href="/events/CreateEventScreen" style={styles.createButton}>
         <Text style={styles.createButtonText}>Criar Nova Palestra</Text>
@@ -80,9 +80,7 @@ export default function HomeScreen() {
       <Link href="/users/" style={styles.createButton}>
         <Text style={styles.createButtonText}>Users</Text>
       </Link>
-      <Link href="/checkin/" style={styles.createButton}>
-        <Text style={styles.createButtonText}>checkin</Text>
-      </Link>
+
       <FlatList
         data={eventos}
         keyExtractor={(item) => item.id}

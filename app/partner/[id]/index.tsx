@@ -10,7 +10,6 @@ export default function Checkin() {
   const [message, setMessage] = useState<string | null>(null);
   const [messageColor, setMessageColor] = useState<string>('#1e90ff'); // Cor padrão (azul)
   const [showMessage, setShowMessage] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // Evita requisições duplicadas
 
   console.log(id);
 
@@ -19,7 +18,6 @@ export default function Checkin() {
       setShowMessage(true);
       setTimeout(() => {
         setShowMessage(false);
-        setMessage(null); // Limpa a mensagem para o próximo uso
         setQrCodeData(null); // Limpa o QR Code e volta para o scanner
       }, 3000); // Exibe a mensagem por 3 segundos
     }
@@ -40,41 +38,44 @@ export default function Checkin() {
     );
   }
 
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (isSubmitting) return; // Evita chamadas simultâneas
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
     setQrCodeData(data);
-    setIsSubmitting(true);
+    // Agora, você pode enviar o ID da palestra e o e-mail do QR code para registrar o usuário
+    Alert.alert('QR Code Detectado', `ID da Palestra: ${id}\nEmail: ${data}`);
 
-    try {
-      const response = await fetch(`https://api.secompufpe.com/palestras/${id}/checkin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          usuario_email: data, // e-mail do QR Code
-        }),
-      });
+    // Exemplo de chamada para registrar o usuário na palestra
+    const registerUserForEvent = async () => {
+      try {
+        const response = await fetch(`https://api.secompufpe.com/partner/${id}/checkin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            usuario_email: data, // e-mail do QR Code
+          }),
+        });
 
-      if (response.ok) {
-        setMessage('Check-in realizado com sucesso!');
-        setMessageColor('#32CD32'); // Cor verde para sucesso
-      } else {
-        const responseJson = await response.json();
-        if (responseJson.status === 'fila') {
-          setMessage('Você está na lista de espera!');
-          setMessageColor('#FFA500'); // Cor laranja para fila
+        if (response.ok) {
+          setMessage('Check-in realizado com sucesso!');
+          setMessageColor('#32CD32'); // Cor verde para sucesso
         } else {
-          setMessage('Falha ao registrar usuário na palestra.');
-          setMessageColor('#FF6347'); // Cor vermelha para erro
+          const responseJson = await response.json();
+          if (responseJson.status === 'fila') {
+            setMessage('Você está na lista de espera!');
+            setMessageColor('#FFA500'); // Cor laranja para fila
+          } else {
+            setMessage('Falha ao registrar usuário na palestra.');
+            setMessageColor('#FF6347'); // Cor vermelha para erro
+          }
         }
+      } catch (error) {
+        setMessage('Erro ao registrar na palestra.');
+        setMessageColor('#FF6347'); // Cor vermelha para erro
       }
-    } catch (error) {
-      setMessage('Erro ao registrar na palestra.');
-      setMessageColor('#FF6347'); // Cor vermelha para erro
-    } finally {
-      setIsSubmitting(false); // Libera para novas requisições
-    }
+    };
+
+    registerUserForEvent();
   };
 
   return (
@@ -153,16 +154,11 @@ const styles = StyleSheet.create({
   messageContainer: {
     position: 'absolute',
     top: '40%',
-    left: 20,
-    right: 20,
+    left: 0,
+    right: 0,
     padding: 20,
     borderRadius: 10,
     alignItems: 'center',
     opacity: 0.9,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
   },
 });

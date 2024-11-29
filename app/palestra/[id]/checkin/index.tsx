@@ -4,31 +4,34 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams } from 'expo-router';
 
 export default function Checkin() {
-  const { id } = useLocalSearchParams(); // Pega o ID da palestra da URL
+  const { id } = useLocalSearchParams();
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [message, setMessage] = useState<string | null>(null);
-  const [messageColor, setMessageColor] = useState<string>('#1e90ff'); // Cor padrão (azul)
+  const [messageColor, setMessageColor] = useState<string>('#1e90ff');
   const [showMessage, setShowMessage] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // Evita requisições duplicadas
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [palestra, setPalestra] = useState<any>(null);
 
-  console.log(id);
+  useEffect(() => {
+    fetch(`https://api.secompufpe.com/partner/${id}`)
+      .then(response => response.json())
+      .then(data => setPalestra(data))
+      .catch(error => console.error('Error fetching data:', error));
+  }, []);
 
   useEffect(() => {
     if (message) {
       setShowMessage(true);
       setTimeout(() => {
         setShowMessage(false);
-        setMessage(null); // Limpa a mensagem para o próximo uso
-        setQrCodeData(null); // Limpa o QR Code e volta para o scanner
-      }, 3000); // Exibe a mensagem por 3 segundos
+        setMessage(null);
+        setQrCodeData(null);
+      }, 3000);
     }
   }, [message]);
 
-  if (!permission) {
-    return <View />;
-  }
-
+  if (!permission) return <View />;
   if (!permission.granted) {
     return (
       <View style={styles.container}>
@@ -41,7 +44,7 @@ export default function Checkin() {
   }
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (isSubmitting) return; // Evita chamadas simultâneas
+    if (isSubmitting) return;
     setQrCodeData(data);
     setIsSubmitting(true);
 
@@ -51,34 +54,41 @@ export default function Checkin() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          usuario_email: data, // e-mail do QR Code
-        }),
+        body: JSON.stringify({ usuario_email: data }),
       });
 
       if (response.ok) {
         setMessage('Check-in realizado com sucesso!');
-        setMessageColor('#32CD32'); // Cor verde para sucesso
+        setMessageColor('#32CD32');
       } else {
         const responseJson = await response.json();
         if (responseJson.status === 'fila') {
           setMessage('Você está na lista de espera!');
-          setMessageColor('#FFA500'); // Cor laranja para fila
+          setMessageColor('#FFA500');
         } else {
           setMessage('Falha ao registrar usuário na palestra.');
-          setMessageColor('#FF6347'); // Cor vermelha para erro
+          setMessageColor('#FF6347');
         }
       }
     } catch (error) {
       setMessage('Erro ao registrar na palestra.');
-      setMessageColor('#FF6347'); // Cor vermelha para erro
+      setMessageColor('#FF6347');
     } finally {
-      setIsSubmitting(false); // Libera para novas requisições
+      setIsSubmitting(false);
     }
   };
 
+  const startTime = palestra ? new Date(palestra.timestamp * 1000).toLocaleTimeString() : '';
+
   return (
     <View style={styles.container}>
+      {palestra && (
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>{palestra.title}</Text>
+          <Text style={styles.time}>Início: {startTime}</Text>
+        </View>
+      )}
+
       {qrCodeData ? (
         <View style={styles.resultContainer}>
           {showMessage && (
@@ -164,5 +174,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.8,
     shadowRadius: 4,
+  },
+  titleContainer: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  time: {
+    fontSize: 18,
+    color: 'white',
   },
 });

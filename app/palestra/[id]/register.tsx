@@ -1,117 +1,122 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useLocalSearchParams } from 'expo-router';
+import { View, TextInput, Button, StyleSheet, Text, ActivityIndicator, Alert } from 'react-native';
+import { CameraView } from 'expo-camera'; // Para leitura do QR Code
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function Checkin() {
-  const { id } = useLocalSearchParams(); // Pega o ID da palestra da URL
-  
-  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
-  const [permission, requestPermission] = useCameraPermissions();
-  const [message, setMessage] = useState<string | null>(null);
-  const [messageColor, setMessageColor] = useState<string>('#1e90ff'); // Cor padrão (azul)
-  const [showMessage, setShowMessage] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // Evita requisições duplicadas
-  const { width, height } = Dimensions.get('window'); // Largura e altura da tela
-  const scannerSize = width * 0.5; // 60% da largura da tela
+export default function PartnerCheckIn() {
+  const [qrData, setQrData] = useState<string | null>(null);
+  const [obs, setObs] = useState<string>('');
+  const [partnerId, setPartnerId] = useState<number | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
-    if (message) {
-      setShowMessage(true);
-      setTimeout(() => {
-        setShowMessage(false);
-        setMessage(null); // Limpa a mensagem para o próximo uso
-        setQrCodeData(null); // Limpa o QR Code e volta para o scanner
-      }, 3000); // Exibe a mensagem por 3 segundos
-    }
-  }, [message]);
+    const fetchPartnerInfo = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) throw new Error('Token não encontrado');
 
-  if (!permission) {
-    return <View />;
-  }
+        const response = await fetch('https://api.secompufpe.com/partner/me', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-  if (!permission.granted) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.message}>Precisamos da sua permissão para usar a câmera</Text>
-        <TouchableOpacity onPress={requestPermission} style={styles.button}>
-          <Text style={styles.text}>Conceder permissão</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (isSubmitting) return; // Evita chamadas simultâneas
-    setQrCodeData(data);
-    setIsSubmitting(true);
-    const token = await AsyncStorage.getItem('token');
-    try {
-      const response = await fetch(`https://api.secompufpe.com/palestras/${id}/checkin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          usuario_email: data, // e-mail do QR Code
-        }),
-      });
-
-      if (response.ok) {
-        const responseJson = await response.json();
-        setMessage(responseJson.message || 'Check-in realizado com sucesso!');
-        setMessageColor('#32CD32'); // Cor verde para sucesso
-      } else {
-        const responseJson = await response.json();
-        setMessage(responseJson.error || responseJson.message || `Erro: ${response.status} - ${response.statusText}`);
-        setMessageColor('#FF6347'); // Cor vermelha para erro
+        if (response.ok) {
+          const partnerData = await response.json();
+          setPartnerId(partnerData.partner_id); // Armazena o partner_id
+        } else {
+          console.error('Erro ao obter informações do parceiro');
+        }
+      } catch (error) {
+        console.error('Erro ao buscar informações do parceiro:', error);
       }
-    } catch (error) {
-      setMessage('Erro ao registrar na palestra. Verifique sua conexão.');
-      setMessageColor('#FF6347'); // Cor vermelha para erro
-    } finally {
-      setIsSubmitting(false); // Libera para novas requisições
-    }
+    };
+
+    fetchPartnerInfo();
+  }, []);
+
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    console.log('QR Code escaneado:', data); // Verifique se está capturando os dados
+    setQrData(data);
+  };
+
+  const handleSend = () => {
+    console.log('Enviando dados...', qrData, obs); // Verifique os dados que estão sendo enviados
+    if (!qrData || !obs || !partnerId) return;
+
+    // Exibir o modal de confirmação
+    Alert.alert(
+      'Confirmar Envio',
+      'Tem certeza que deseja enviar os dados?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setIsSending(true);
+            try {
+              const token = await AsyncStorage.getItem('token');
+              const response = await fetch(`https://api.secompufpe.com/partner/${partnerId}/checkin`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  usuario_email: qrData,
+                  obs,
+                }),
+              });
+
+              if (response.ok) {
+                alert('Check-in realizado com sucesso!');
+              } else {
+                alert('Erro ao realizar check-in.');
+              }
+            } catch (error) {
+              alert('Erro ao enviar os dados.');
+            } finally {
+              setIsSending(false);
+            }
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   return (
     <View style={styles.container}>
-      {qrCodeData ? (
-        <View style={styles.resultContainer}>
-          
-          {showMessage && (
-            <View style={[styles.messageContainer, { backgroundColor: messageColor }]}>
-              <Text style={styles.resultText}>{message}</Text>
-            </View>
-          )}
-          <TouchableOpacity style={styles.button} onPress={() => setQrCodeData(null)}>
-            <Text style={styles.text}>Ler outro QR Code</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <CameraView
-          barcodeScannerSettings={{
-            barcodeTypes: ['qr'],
-          }}
-          onBarcodeScanned={handleBarCodeScanned}
-          style={styles.cameraView}
-        >
-          <View style={styles.overlay}>
-            {/* Camada superior de sobreposição */}
-            <View style={styles.topOverlay} />
-            <View style={styles.middleOverlay}>
-              <View style={styles.sideOverlay} />
-              {/* Quadrado de escaneamento */}
-              <View style={[styles.scanFrame, { width: scannerSize, height: scannerSize }]} />
-              <View style={styles.sideOverlay} />
-            </View>
-            {/* Camada inferior de sobreposição */}
-            <View style={styles.bottomOverlay} />
-          </View>
-        </CameraView>
-      )}
+      <CameraView
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        onBarcodeScanned={handleBarCodeScanned}
+        style={styles.cameraView}
+      />
+      <View style={styles.overlay}>
+        <TextInput
+          style={styles.input}
+          value={qrData || ''}
+          editable={false}
+          placeholder="Email do Usuário"
+        />
+        <TextInput
+          style={styles.input}
+          value={obs}
+          onChangeText={setObs}
+          placeholder="Observação"
+        />
+        <Button
+          title={isSending ? 'Enviando...' : 'Enviar'}
+          onPress={handleSend}
+          disabled={isSending || !qrData || !obs}
+        />
+        {isSending && <ActivityIndicator size="large" color="#0000ff" />}
+      </View>
     </View>
   );
 }
@@ -124,41 +129,28 @@ const styles = StyleSheet.create({
   },
   cameraView: {
     flex: 1,
+    width: '100%',
   },
   overlay: {
-    position: 'absolute', // Necessário para ficar sobre a câmera
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  topOverlay: {
-    flex: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Escurece a parte superior
-  },
-  middleOverlay: {
-    flex: 1,
-    flexDirection: 'row',
     justifyContent: 'center',
-    position: 'relative', // Garante que o centro fique na frente
+    alignItems: 'center',
+    padding: 20,
   },
-  sideOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Escurece os lados
-  },
-  scanFrame: {
-
-    backgroundColor: 'transparent', // Manter transparente o centro
-    zIndex: 10, // Garante que o quadrado esteja sobre as outras camadas
-  },
-  bottomOverlay: {
-    flex: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Escurece a parte inferior
-  },
-  message: {
-    fontSize: 18,
-    textAlign: 'center',
-    color: 'white',
+  input: {
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    marginTop: 10,
+    width: '100%',
+    paddingLeft: 8,
+    color: '#fff',
+    backgroundColor: '#333',
+    borderRadius: 5,
   },
   button: {
     backgroundColor: '#1e90ff',
@@ -169,27 +161,5 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     color: 'white',
-  },
-  resultContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  resultText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  messageContainer: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    opacity: 0.9,
-    zIndex: 10,
   },
 });

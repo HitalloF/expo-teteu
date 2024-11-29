@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "app",
+    "name": "SeComp",
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sp4.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,11 +26,11 @@
     "plugins": [
       "expo-router",
       [
-      "expo-camera",
-      {
-        "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
-      }
-    ],
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
+        }
+      ],
       [
         "expo-splash-screen",
         {

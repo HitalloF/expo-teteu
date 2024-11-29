@@ -46,7 +46,7 @@ export default function HomeScreen() {
       try {
         const token = await AsyncStorage.getItem('token');
         if (!token) throw new Error('Token não encontrado');
-
+  
         const response = await fetch('https://api.secompufpe.com/usuarios/me', {
           method: 'GET',
           headers: {
@@ -54,21 +54,40 @@ export default function HomeScreen() {
             'Content-Type': 'application/json',
           },
         });
-
+  
         if (!response.ok) throw new Error('Erro ao carregar informações do usuário');
-
+  
         const userData = await response.json();
         setMe(userData);
-
+  
         // Salva os dados do usuário no AsyncStorage
         await AsyncStorage.setItem('me', JSON.stringify(userData));
+  
+        // Condicional de navegação
+        if (userData.is_partner) {
+          const partnerResponse = await fetch('https://api.secompufpe.com/partner/me', {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+  
+          if (partnerResponse.ok) {
+            const partnerData = await partnerResponse.json();
+            router.push(`/partner`);
+          }
+        }
+  
       } catch (error) {
         console.error('Erro ao buscar informações do usuário:', error);
       }
     };
-
+  
     fetchUserInfo();
   }, []);
+  
+  
   console.log(me)
   useEffect(() => {
     const fetchEventos = async () => {

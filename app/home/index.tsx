@@ -88,7 +88,7 @@ export default function HomeScreen() {
   }, []);
   
   
-  console.log(me)
+  console.log(me,'euuu')
   useEffect(() => {
     const fetchEventos = async () => {
       setLoading(true);

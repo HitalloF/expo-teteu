@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  TextInput, 
-  Button, 
-  StyleSheet, 
-  Text, 
-  ActivityIndicator, 
-  Modal 
+import {
+  View,
+  TextInput,
+  Button,
+  StyleSheet,
+  Text,
+  ActivityIndicator,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
-import { CameraView } from 'expo-camera'; // Biblioteca QR
+import { CameraView } from 'expo-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function PartnerCheckIn() {
@@ -18,7 +19,7 @@ export default function PartnerCheckIn() {
   const [isSending, setIsSending] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
-  const [isCameraActive, setIsCameraActive] = useState(true); // Estado para controlar a câmera
+  const [isCameraActive, setIsCameraActive] = useState(true);
 
   useEffect(() => {
     const fetchPartnerInfo = async () => {
@@ -36,7 +37,7 @@ export default function PartnerCheckIn() {
 
         if (response.ok) {
           const partnerData = await response.json();
-          setPartnerId(partnerData[0].partner_id); // Armazena o partner_id
+          setPartnerId(partnerData[0].partner_id);
         } else {
           console.error('Erro ao obter informações do parceiro');
         }
@@ -75,7 +76,6 @@ export default function PartnerCheckIn() {
 
       if (response.ok) {
         setModalMessage('Check-in realizado com sucesso!');
-        // Limpar os campos após o sucesso
         setQrData(null);
         setObs('');
       } else {
@@ -85,7 +85,7 @@ export default function PartnerCheckIn() {
       setModalMessage('Erro ao enviar os dados. Verifique sua conexão.');
     } finally {
       setIsSending(false);
-      setModalVisible(true); // Mostra o modal após o envio
+      setModalVisible(true);
     }
   };
 
@@ -103,11 +103,14 @@ export default function PartnerCheckIn() {
         </View>
       )}
 
-      <Button
-        title={isCameraActive ? 'Desativar Câmera' : 'Ativar Câmera'}
+      <TouchableOpacity
+        style={[styles.button, { marginBottom: 10 }]}
         onPress={() => setIsCameraActive(!isCameraActive)}
-        color="#f00" // Botão vermelho para destaque
-      />
+      >
+        <Text style={styles.text}>
+          {isCameraActive ? 'Desativar Câmera' : 'Ativar Câmera'}
+        </Text>
+      </TouchableOpacity>
 
       <TextInput
         style={styles.input}
@@ -123,14 +126,16 @@ export default function PartnerCheckIn() {
         placeholder="Observação"
         placeholderTextColor="#888"
       />
-      <Button
-        title={isSending ? 'Enviando...' : 'Enviar'}
+      <TouchableOpacity
+        style={styles.button}
         onPress={handleSend}
         disabled={isSending || !qrData || !obs}
-      />
+      >
+        <Text style={styles.text}>{isSending ? 'Enviando...' : 'Enviar'}</Text>
+      </TouchableOpacity>
+
       {isSending && <ActivityIndicator size="large" color="#ffffff" />}
-      
-      {/* Modal de Confirmação */}
+
       <Modal
         transparent={true}
         visible={modalVisible}
@@ -140,7 +145,12 @@ export default function PartnerCheckIn() {
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalText}>{modalMessage}</Text>
-            <Button title="OK" onPress={() => setModalVisible(false)} />
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.text}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -152,9 +162,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#000',
     padding: 20,
-    backgroundColor: '#000', // Fundo preto
   },
   cameraView: {
     width: '100%',
@@ -175,12 +184,23 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 40,
-    borderColor: '#ccc',
+    borderColor: '#1e90ff',
     borderWidth: 1,
     marginTop: 10,
     width: '100%',
     paddingLeft: 8,
-    color: '#fff', // Texto branco no fundo preto
+    color: '#fff',
+  },
+  button: {
+    backgroundColor: '#1e90ff',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  text: {
+    fontSize: 16,
+    color: 'white',
   },
   modalBackground: {
     flex: 1,

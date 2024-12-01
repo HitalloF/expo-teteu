@@ -1,122 +1,113 @@
-import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, StyleSheet, Text, ActivityIndicator, Alert } from 'react-native';
-import { CameraView } from 'expo-camera'; // Para leitura do QR Code
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
+import { CameraView } from 'expo-camera';
 
 export default function PartnerCheckIn() {
   const [qrData, setQrData] = useState<string | null>(null);
-  const [obs, setObs] = useState<string>('');
-  const [partnerId, setPartnerId] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const [isCameraActive, setIsCameraActive] = useState(true);
 
-  useEffect(() => {
-    const fetchPartnerInfo = async () => {
-      try {
-        const token = await AsyncStorage.getItem('token');
-        if (!token) throw new Error('Token não encontrado');
+  const handleBarCodeScanned = async ({ data }: { data: string }) => {
+    if (isSending) return;
 
-        const response = await fetch('https://api.secompufpe.com/partner/me', {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const partnerData = await response.json();
-          setPartnerId(partnerData.partner_id); // Armazena o partner_id
-        } else {
-          console.error('Erro ao obter informações do parceiro');
-        }
-      } catch (error) {
-        console.error('Erro ao buscar informações do parceiro:', error);
-      }
-    };
-
-    fetchPartnerInfo();
-  }, []);
-
-  const handleBarCodeScanned = ({ data }: { data: string }) => {
-    console.log('QR Code escaneado:', data); // Verifique se está capturando os dados
     setQrData(data);
-  };
+    setIsSending(true);
 
-  const handleSend = () => {
-    console.log('Enviando dados...', qrData, obs); // Verifique os dados que estão sendo enviados
-    if (!qrData || !obs || !partnerId) return;
-
-    // Exibir o modal de confirmação
-    Alert.alert(
-      'Confirmar Envio',
-      'Tem certeza que deseja enviar os dados?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
+    try {
+      const response = await fetch(`https://api.secompufpe.com/palestras/checkin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          text: 'Confirmar',
-          onPress: async () => {
-            setIsSending(true);
-            try {
-              const token = await AsyncStorage.getItem('token');
-              const response = await fetch(`https://api.secompufpe.com/partner/${partnerId}/checkin`, {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  usuario_email: qrData,
-                  obs,
-                }),
-              });
+        body: JSON.stringify({ qrCode: data }),
+      });
 
-              if (response.ok) {
-                alert('Check-in realizado com sucesso!');
-              } else {
-                alert('Erro ao realizar check-in.');
-              }
-            } catch (error) {
-              alert('Erro ao enviar os dados.');
-            } finally {
-              setIsSending(false);
-            }
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+      if (response.ok) {
+        setModalMessage('Check-in realizado com sucesso!');
+      } else {
+        const errorData = await response.json();
+        setModalMessage(
+          errorData.status === 'fila'
+            ? 'Você está na lista de espera!'
+            : 'Erro ao realizar check-in. Tente novamente.'
+        );
+      }
+    } catch (error) {
+      setModalMessage('Erro ao enviar os dados. Verifique sua conexão.');
+    } finally {
+      setIsSending(false);
+      setModalVisible(true);
+    }
   };
 
   return (
     <View style={styles.container}>
-      <CameraView
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={handleBarCodeScanned}
-        style={styles.cameraView}
-      />
-      <View style={styles.overlay}>
-        <TextInput
-          style={styles.input}
-          value={qrData || ''}
-          editable={false}
-          placeholder="Email do Usuário"
-        />
-        <TextInput
-          style={styles.input}
-          value={obs}
-          onChangeText={setObs}
-          placeholder="Observação"
-        />
-        <Button
-          title={isSending ? 'Enviando...' : 'Enviar'}
-          onPress={handleSend}
-          disabled={isSending || !qrData || !obs}
-        />
-        {isSending && <ActivityIndicator size="large" color="#0000ff" />}
-      </View>
+      {isCameraActive ? (
+        <View style={styles.cameraWrapper}>
+          <CameraView
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            onBarcodeScanned={handleBarCodeScanned}
+            style={styles.cameraView}
+          />
+          {/* Sobreposição para criar o recorte com borda */}
+          <View style={styles.overlay}>
+            <View style={styles.topOverlay} />
+            <View style={styles.middleOverlay}>
+              <View style={styles.sideOverlay} />
+              <View style={styles.transparentHole} />
+              <View style={styles.sideOverlay} />
+            </View>
+            <View style={styles.bottomOverlay} />
+          </View>
+        </View>
+      ) : (
+        <View style={styles.cameraOff}>
+          <Text style={styles.cameraOffText}>Câmera Desativada</Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[styles.button, { marginBottom: 10 }]}
+        onPress={() => setIsCameraActive(!isCameraActive)}
+      >
+        <Text style={styles.text}>
+          {isCameraActive ? 'Desativar Câmera' : 'Ativar Câmera'}
+        </Text>
+      </TouchableOpacity>
+
+      {qrData && (
+        <Text style={styles.qrText}>Último QR Code lido: {qrData}</Text>
+      )}
+
+      {isSending && <ActivityIndicator size="large" color="#ffffff" />}
+
+      <Modal
+        transparent={true}
+        visible={modalVisible}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalText}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.text}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -126,10 +117,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     backgroundColor: '#000',
+    padding: 20,
+  },
+  cameraWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: '50%',
   },
   cameraView: {
-    flex: 1,
     width: '100%',
+    height: '100%',
   },
   overlay: {
     position: 'absolute',
@@ -137,29 +134,76 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 2,
+  },
+  topOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Parte superior escura
+  },
+  middleOverlay: {
+    flexDirection: 'row',
+    height: 200, // Altura do "buraco"
+  },
+  sideOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Lados escuros
+  },
+  transparentHole: {
+    width: 200,
+    height: 200,
+    backgroundColor: 'transparent', // Centro transparente
+    borderWidth: 2,
+    borderColor: '#1e90ff', // Borda azul
+  },
+  bottomOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Parte inferior escura
+  },
+  cameraOff: {
+    width: '100%',
+    height: '40%',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-  },
-  input: {
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    marginTop: 10,
-    width: '100%',
-    paddingLeft: 8,
-    color: '#fff',
     backgroundColor: '#333',
-    borderRadius: 5,
+  },
+  cameraOffText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   button: {
     backgroundColor: '#1e90ff',
     padding: 10,
     borderRadius: 5,
-    marginHorizontal: 10,
+    marginTop: 10,
+    alignItems: 'center',
   },
   text: {
     fontSize: 16,
     color: 'white',
+  },
+  qrText: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContainer: {
+    width: '80%',
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalText: {
+    marginBottom: 10,
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
